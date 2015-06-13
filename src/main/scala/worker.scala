@@ -2,11 +2,13 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 import com.redis._
+import grizzled.slf4j.Logging
 
-object worker extends App {
+object worker extends App with Logging{
 
   override def main(args: Array[String]): Unit = {
     println("Worker start...")
+    debug("STARTED")
     val r = new RedisClient("localhost", 6379)
     var i: Int = 0
 
@@ -35,12 +37,21 @@ object worker extends App {
           val interval = r.hget("user_" + nr + ":soldier:interval", range)
           val modulo = diff % interval.get.toInt
           if (modulo == 0) {
-            r.hincrby("user_" + nr + ":soldier:amount", range, 1)
             val queue_amount = r.hget("user_" + nr + ":soldier:queue_amount", range)
             if (queue_amount.get.toInt <= 0) {
+              info("DELETED " + nr + ":" + range)
+              r.hdel("user_" + nr + ":soldier:queue_amount", range)
+              r.hdel("user_" + nr + ":soldier:queue_time", range)
+            } else if(queue_amount.get.toInt == 1) {
+              info("INCREASED " + nr + ":" + range)
+              info("DELETED " + nr + ":" + range)
+              r.hincrby("user_" + nr + ":soldier:amount", range, 1)
+              r.hincrby("user_" + nr + ":soldier:queue_amount", range, -1)
               r.hdel("user_" + nr + ":soldier:queue_amount", range)
               r.hdel("user_" + nr + ":soldier:queue_time", range)
             } else {
+              info("INCREASED " + nr + ":" + range)
+              r.hincrby("user_" + nr + ":soldier:amount", range, 1)
               r.hincrby("user_" + nr + ":soldier:queue_amount", range, -1)
             }
 
