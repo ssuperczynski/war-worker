@@ -11,17 +11,11 @@ object worker extends App {
     var i: Int = 0
 
     while (true) {
-      try {
         Thread.sleep(1000)
         println("loop: " + i)
         i = i + 1
         val numbers: List[Int] = getUsers(r)
         checkQueue(r, numbers)
-
-      } catch {
-        case e: Exception =>
-          println(e.getMessage)
-      }
 
     }
 
@@ -53,20 +47,21 @@ object worker extends App {
           }
 
         }
+        case None =>
       }
     }
     val d2 = new Date()
-    println("diff: -> " + (d2.getTime - d1.getTime))
+    println("loop time: " + (d2.getTime - d1.getTime) + " milliseconds")
   }
 
   private def getUsers(r: RedisClient): List[Int] = {
-    val list = r.keys("*user_*")
+    val list = r.keys("*user_*:soldier:interval*")
     var numbers = List[Int]()
 
     list match {
       case Some(s) => for (k <- s) {
         val key = k.get
-        val nr = key.replaceAll("[^0-9?!\\.]", "")
+        val nr = key.replaceAll("[^0-9?]", "")
         numbers = nr.toInt :: numbers
       }
       case None =>
