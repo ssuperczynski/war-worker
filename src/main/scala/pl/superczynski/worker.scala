@@ -45,11 +45,13 @@ object worker extends App {
 
           if (modulo == 0) {
             val queue_amount = r.hget("user_" + nr + ":soldier:queue_amount", range)
-            val amount = queue_amount.get.toInt
-            if (amount >= 1) {
+            if (queue_amount.get.toInt >= 1) {
               r.hincrby("user_" + nr + ":soldier:amount", range, 1)
               r.hincrby("user_" + nr + ":soldier:queue_amount", range, -1)
-              val jsonString = (new Utils).jsonString(nr, amount)
+              val amount = r.hget("user_" + nr + ":soldier:amount", range)
+              val jsonString = (new Utils).jsonString(nr, amount.get.toInt, range)
+              println("amount: " + amount.get.toInt)
+              println("range: " + range)
               r.publish("socket-redis-down", jsonString)
             }
           }
