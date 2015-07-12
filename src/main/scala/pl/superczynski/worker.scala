@@ -8,30 +8,62 @@ import com.redis.RedisClient
 object worker extends App {
 
   lazy val r = new RedisClient("localhost", 6379)
+
   override def main(args: Array[String]): Unit = {
+
     var i: Int = 0
-    var numbers = Set[Int]()
-    var list_size = 0
+    var users_list_size = 0
     while (true) {
       Thread.sleep(1000)
       i = i + 1
-
-      if (list_size == 0) {
-        numbers = getUsers
-        list_size = numbers.size
-      }
-
-      checkQueue(numbers)
+      if (users_list_size == 0) users_list_size = getUsers.size
+      val d1 = new Date()
+      queueSoldiers(getUsers)
+      queueScan()
+      println("loop time: " + (new Date().getTime - d1.getTime) + " milliseconds")
     }
+  }
+
+  /**
+   * @return
+   */
+  private def queueScan(): Unit = {
+    val list = r.keys("*user_*:scan:**")
+    val format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+    list match {
+      case Some(keys) => for (key <- keys) {
+        val time = r.hget(key.get, "time")
+        val saved = format.parse(time.get)
+        val nr = key.get.replaceAll("[^0-9?]", "")
+        if (isScanned(saved)) sendScanReport(nr, key.get)
+      }
+      case None =>
+    }
+  }
+
+  /**
+   *
+   * @return
+   */
+  private def isScanned(saved: Date): Boolean = {
+    println((new Date().getTime - saved.getTime) / 1000)
+    (new Date().getTime - saved.getTime) / 1000 == 0
+  }
+
+  private def sendScanReport(nr: String, key: String) = {
+    val user_nr = nr.take(1).toInt
+    val amount = 1
+    val json = (new Utils).scanReportWS(user_nr, amount)
+    println("report")
+    r.del(key, user_nr)
+    r.publish("socket-redis-down", json)
   }
 
   /**
    *
    * @param numbers Set[Int]
    */
-  private def checkQueue(numbers: Set[Int]): Unit = {
-    val d1 = new Date()
-
+  private def queueSoldiers(numbers: Set[Int]): Unit = {
     for (nr <- numbers) {
       val ranges = r.hkeys("user_" + nr + ":soldier:queue_time")
       ranges match {
@@ -42,8 +74,6 @@ object worker extends App {
         case _ =>
       }
     }
-
-    println("loop time: " + (new Date().getTime - d1.getTime) + " milliseconds")
   }
 
   /**
@@ -54,9 +84,8 @@ object worker extends App {
 
     val list = r.keys("*user_*:soldier:interval*")
     var numbers = Set[Int]()
-
     list match {
-      case Some(s) => for (k <- s) {
+      case Some(keys) => for (k <- keys) {
         val key = k.get
         val nr = key.replaceAll("[^0-9?]", "")
         numbers += nr.toInt
@@ -85,8 +114,8 @@ object worker extends App {
         r.hincrby("user_" + nr + ":soldier:amount", range, 1)
         r.hincrby("user_" + nr + ":soldier:queue_amount", range, -1)
         val amount = r.hget("user_" + nr + ":soldier:amount", range)
-        val jsonString = (new Utils).jsonString(nr, amount.get.toInt, range)
-        r.publish("socket-redis-down", jsonString)
+        val json = (new Utils).soldierAmountWS(nr, amount.get.toInt, range)
+        r.publish("socket-redis-down", json)
       }
     }
   }
