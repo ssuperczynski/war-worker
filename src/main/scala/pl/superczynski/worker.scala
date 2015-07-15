@@ -46,16 +46,18 @@ object worker extends App {
    * @return
    */
   private def isScanned(saved: Date): Boolean = {
-    println((new Date().getTime - saved.getTime) / 1000)
-    (new Date().getTime - saved.getTime) / 1000 == 0
+    val diff = (new Date().getTime - saved.getTime) / 1000
+    println(diff)
+    diff >= 0
   }
 
   private def sendScanReport(nr: String, key: String) = {
     val user_nr = nr.take(1).toInt
-    val amount = 1
+    val amount = r.hgetall("user_" + user_nr + ":counter")
     val json = (new Utils).scanReportWS(user_nr, amount)
-    println("report")
+
     r.del(key, user_nr)
+    r.decr("user_" + user_nr + ":scan_amount")
     r.publish("socket-redis-down", json)
   }
 
