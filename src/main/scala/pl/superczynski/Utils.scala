@@ -1,7 +1,10 @@
 package pl.superczynski
 
+import com.redis.RedisClient
+
 class Utils {
 
+  lazy val r = new RedisClient("localhost", 6379)
   def soldierAmountWS(nr: Int, amount: Int, range: String):String = {
     s"""
       {
@@ -18,7 +21,8 @@ class Utils {
        """
   }
 
-  def scanReportWS(nr: Int, amount: Option[Map[String, String]]):String = {
+  def scanReportWS(nr: Int, scanned: String):String = {
+    val amount = r.hgetall("user_" + nr + ":counter")
     s"""
       {
           "type": "publish",
@@ -26,6 +30,7 @@ class Utils {
               "channel": "user_scan_$nr",
               "event": "scan",
               "data": {
+                  "nr": $scanned,
                   "soldier": ${amount.get("soldier").toInt},
                   "food": ${amount.get("food").toInt},
                   "iron": ${amount.get("iron").toInt},

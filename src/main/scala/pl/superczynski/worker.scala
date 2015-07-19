@@ -34,8 +34,7 @@ object worker extends App {
       case Some(keys) => for (key <- keys) {
         val time = r.hget(key.get, "time")
         val saved = format.parse(time.get)
-        val nr = key.get.replaceAll("[^0-9?]", "")
-        if (isScanned(saved)) sendScanReport(nr, key.get)
+        if (isScanned(saved)) sendScanReport(key)
       }
       case None =>
     }
@@ -51,13 +50,15 @@ object worker extends App {
     diff >= 0
   }
 
-  private def sendScanReport(nr: String, key: String) = {
+  private def sendScanReport(key: Option[String]) = {
+    val nr = key.get.replaceAll("[^0-9?]", "")
     val user_nr = nr.take(1).toInt
-    val amount = r.hgetall("user_" + user_nr + ":counter")
-    val json = (new Utils).scanReportWS(user_nr, amount)
+    val scanned = r.hget(key.get, "scanned")
+    val json = (new Utils).scanReportWS(user_nr, scanned.get)
 
-    r.del(key, user_nr)
+    r.del(key.get)
     r.decr("user_" + user_nr + ":scan_amount")
+    r.lpush("user_" + user_nr + ":messages", json)
     r.publish("socket-redis-down", json)
   }
 
