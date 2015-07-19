@@ -22,7 +22,8 @@ class Utils {
   }
 
   def scanReportWS(nr: Int, scanned: String):String = {
-    val amount = r.hgetall("user_" + nr + ":counter")
+    val counters_amount = r.hgetall("user_" + nr + ":counter")
+    val soldiers_amount = r.hgetall("user_" + nr + ":soldier:amount")
     s"""
       {
           "type": "publish",
@@ -31,11 +32,15 @@ class Utils {
               "event": "scan",
               "data": {
                   "nr": $scanned,
-                  "soldier": ${amount.get("soldier").toInt},
-                  "food": ${amount.get("food").toInt},
-                  "iron": ${amount.get("iron").toInt},
-                  "concrete": ${amount.get("concrete").toInt},
-                  "time": ${'"' + amount.get("time").toString + '"'}
+                  "soldier": ${counters_amount.get("soldier").toInt},
+                  "food": ${counters_amount.get("food").toInt},
+                  "iron": ${counters_amount.get("iron").toInt},
+                  "concrete": ${counters_amount.get("concrete").toInt},
+                  "time": ${'"' + counters_amount.get("time").toString + '"'},
+                  "Sergeant": ${soldiers_amount.get("Sergeant").toInt},
+                  "Warrant_Officer": ${soldiers_amount.get("Warrant_Officer").toInt},
+                  "Private": ${soldiers_amount.get("Private").toInt},
+                  "Corporal": ${soldiers_amount.get("Corporal").toInt}
               }
           }
       }
